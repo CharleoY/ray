@@ -586,18 +586,17 @@ class VLLMEngine(LLMEngine):
             raw_request=raw_request,
         )
 
-        if isinstance(embedding_response, VLLMErrorResponse):
+        # vLLM returns a Starlette Response object, check status_code for errors
+        if embedding_response.status_code != 200:
+            error_content = json.loads(embedding_response.body)
             yield ErrorResponse(
-                error=ErrorInfo(**embedding_response.error.model_dump())
+                error=ErrorInfo(**error_content["error"])
             )
             return
 
-        # vLLM returns a Starlette Response object, extract the JSON content
-        if hasattr(embedding_response, 'body'):
-            content = json.loads(embedding_response.body)
-            yield EmbeddingResponse(**content)
-        else:
-            yield embedding_response
+        # Extract the JSON content from the Starlette Response
+        content = json.loads(embedding_response.body)
+        yield EmbeddingResponse(**content)
 
     async def transcriptions(
         self,
